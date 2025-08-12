@@ -10,9 +10,10 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, MapPin, Save, RefreshCw } from "lucide-react"
 import { getSchoolLocation, updateSchoolLocation, getCurrentLocation, type SchoolLocation } from "@/lib/location"
 import { useToast } from "@/hooks/use-toast"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function LocationSettingsPage() {
-  const [schoolLocation, setSchoolLocation] = useState<SchoolLocation>({
+function LocationSettingsContent() {
+  const [schoolLocation, setSchoolLocation] = useState<Partial<SchoolLocation>>({
     latitude: 0,
     longitude: 0,
     radius: 100,
@@ -22,16 +23,40 @@ export default function LocationSettingsPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    const location = getSchoolLocation()
-    setSchoolLocation(location)
+    const loadLocation = async () => {
+      const location = await getSchoolLocation()
+      if (location) {
+        setSchoolLocation({
+          latitude: location.latitude,
+          longitude: location.longitude,
+          radius: location.radius,
+        })
+      }
+    }
+    loadLocation()
   }, [])
 
-  const handleSave = () => {
-    updateSchoolLocation(schoolLocation)
-    toast({
-      title: "Location settings saved",
-      description: "School location and radius have been updated",
-    })
+  const handleSave = async () => {
+    if (schoolLocation.id) {
+      const success = await updateSchoolLocation(schoolLocation.id, {
+        latitude: schoolLocation.latitude || 0,
+        longitude: schoolLocation.longitude || 0,
+        radius: schoolLocation.radius || 100,
+      })
+      
+      if (success) {
+        toast({
+          title: "Location settings saved",
+          description: "School location and radius have been updated",
+        })
+      } else {
+        toast({
+          title: "Save failed",
+          description: "Failed to update location settings",
+          variant: "destructive",
+        })
+      }
+    }
   }
 
   const handleUseCurrentLocation = async () => {
@@ -95,7 +120,7 @@ export default function LocationSettingsPage() {
                     id="latitude"
                     type="number"
                     step="any"
-                    value={schoolLocation.latitude}
+                    value={schoolLocation.latitude || 0}
                     onChange={(e) =>
                       setSchoolLocation({
                         ...schoolLocation,
@@ -111,7 +136,7 @@ export default function LocationSettingsPage() {
                     id="longitude"
                     type="number"
                     step="any"
-                    value={schoolLocation.longitude}
+                    value={schoolLocation.longitude || 0}
                     onChange={(e) =>
                       setSchoolLocation({
                         ...schoolLocation,
@@ -130,7 +155,7 @@ export default function LocationSettingsPage() {
                   type="number"
                   min="10"
                   max="1000"
-                  value={schoolLocation.radius}
+                  value={schoolLocation.radius || 100}
                   onChange={(e) =>
                     setSchoolLocation({
                       ...schoolLocation,
@@ -154,7 +179,7 @@ export default function LocationSettingsPage() {
                   <RefreshCw className={`h-4 w-4 mr-2 ${isLoading ? "animate-spin" : ""}`} />
                   {isLoading ? "Getting Location..." : "Use Current Location"}
                 </Button>
-                <Button onClick={handleSave}>
+                <Button onClick={handleSave} disabled={!schoolLocation.id}>
                   <Save className="h-4 w-4 mr-2" />
                   Save Settings
                 </Button>
@@ -163,9 +188,9 @@ export default function LocationSettingsPage() {
               <div className="bg-blue-50 p-4 rounded-lg">
                 <h4 className="font-medium text-blue-900 mb-2">Current Settings</h4>
                 <div className="text-sm text-blue-700 space-y-1">
-                  <p>Latitude: {schoolLocation.latitude}</p>
-                  <p>Longitude: {schoolLocation.longitude}</p>
-                  <p>Radius: {schoolLocation.radius} meters</p>
+                  <p>Latitude: {schoolLocation.latitude || 0}</p>
+                  <p>Longitude: {schoolLocation.longitude || 0}</p>
+                  <p>Radius: {schoolLocation.radius || 100} meters</p>
                 </div>
               </div>
 
@@ -182,5 +207,13 @@ export default function LocationSettingsPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function LocationSettingsPage() {
+  return (
+    <AuthProvider>
+      <LocationSettingsContent />
+    </AuthProvider>
   )
 }

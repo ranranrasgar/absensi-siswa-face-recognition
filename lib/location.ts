@@ -14,6 +14,17 @@ export interface SchoolLocationWithRadius extends Location {
   radius: number
 }
 
+export interface LocationValidationResult {
+  isValid: boolean
+  distance: number
+  error?: string
+}
+
+// Get current school location (alias for getCurrentSchoolLocation)
+export const getSchoolLocation = async (): Promise<SchoolLocationWithRadius | null> => {
+  return getCurrentSchoolLocation()
+}
+
 // Get current school location
 export const getCurrentSchoolLocation = async (): Promise<SchoolLocationWithRadius | null> => {
   try {
@@ -33,6 +44,45 @@ export const getCurrentSchoolLocation = async (): Promise<SchoolLocationWithRadi
   } catch (error) {
     console.error('Error getting school location:', error)
     return null
+  }
+}
+
+// Get user's current location (alias for getUserLocation)
+export const getCurrentLocation = (): Promise<Location> => {
+  return getUserLocation()
+}
+
+// Validate if user is within school premises
+export const validateLocation = async (): Promise<LocationValidationResult> => {
+  try {
+    const userLocation = await getUserLocation()
+    const schoolLocation = await getCurrentSchoolLocation()
+    
+    if (!schoolLocation) {
+      return {
+        isValid: false,
+        distance: 0,
+        error: 'School location not configured'
+      }
+    }
+
+    const distance = calculateDistance(
+      userLocation.latitude,
+      userLocation.longitude,
+      schoolLocation.latitude,
+      schoolLocation.longitude
+    )
+
+    return {
+      isValid: distance <= schoolLocation.radius,
+      distance: Math.round(distance),
+    }
+  } catch (error) {
+    return {
+      isValid: false,
+      distance: 0,
+      error: error instanceof Error ? error.message : 'Location validation failed'
+    }
   }
 }
 

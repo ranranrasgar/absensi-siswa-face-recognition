@@ -6,7 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Camera, CheckCircle, XCircle, Loader2, AlertCircle } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
-import { getCurrentUser } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
 
 interface FaceRecognitionProps {
   mode: "enroll" | "recognize"
@@ -23,6 +23,7 @@ export function FaceRecognition({ mode, onSuccess, onError }: FaceRecognitionPro
   const [faceDetected, setFaceDetected] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const { toast } = useToast()
+  const { user, updateProfile } = useAuthContext()
 
   // Simulate face-api.js functionality
   const loadModels = async () => {
@@ -116,16 +117,15 @@ export function FaceRecognition({ mode, onSuccess, onError }: FaceRecognitionPro
         // Generate a mock face descriptor
         const mockDescriptor = Array.from({ length: 128 }, () => Math.random())
 
-        // Save face descriptor to user profile
-        const user = getCurrentUser()
+        // Save face descriptor to user profile using Supabase
         if (user) {
-          const users = JSON.parse(localStorage.getItem("users") || "[]")
-          const userIndex = users.findIndex((u: any) => u.id === user.id)
-          if (userIndex !== -1) {
-            users[userIndex].faceDescriptor = mockDescriptor
-            users[userIndex].enrolledAt = new Date().toISOString()
-            localStorage.setItem("users", JSON.stringify(users))
-            localStorage.setItem("currentUser", JSON.stringify(users[userIndex]))
+          const success = await updateProfile({
+            face_descriptor: mockDescriptor,
+            enrolled_at: new Date().toISOString(),
+          })
+
+          if (!success) {
+            throw new Error("Failed to save face descriptor")
           }
         }
 
@@ -136,8 +136,7 @@ export function FaceRecognition({ mode, onSuccess, onError }: FaceRecognitionPro
         onSuccess?.(mockDescriptor)
       } else {
         // Simulate face recognition
-        const user = getCurrentUser()
-        if (user?.faceDescriptor) {
+        if (user?.face_descriptor) {
           // Simulate recognition success (80% chance)
           const recognized = Math.random() > 0.2
           if (recognized) {

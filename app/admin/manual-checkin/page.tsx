@@ -11,14 +11,15 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, UserCheck, Calendar, Clock } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { addManualAttendance } from "@/lib/attendance"
+import { AuthProvider } from "@/components/AuthProvider"
 
 interface Student {
   id: string
   name: string
-  studentId: string
+  student_id: string
 }
 
-export default function ManualCheckinPage() {
+function ManualCheckinContent() {
   const [students, setStudents] = useState<Student[]>([])
   const [selectedStudent, setSelectedStudent] = useState("")
   const [status, setStatus] = useState<"present" | "late" | "absent">("present")
@@ -28,9 +29,21 @@ export default function ManualCheckinPage() {
   const { toast } = useToast()
 
   useEffect(() => {
-    const users = JSON.parse(localStorage.getItem("users") || "[]")
-    const studentUsers = users.filter((user: any) => user.role === "student")
-    setStudents(studentUsers)
+    const loadStudents = async () => {
+      try {
+        // For now, we'll use mock data since we haven't implemented getAllUsers yet
+        const mockStudents: Student[] = [
+          { id: "1", name: "John Doe", student_id: "ST001" },
+          { id: "2", name: "Jane Smith", student_id: "ST002" },
+          { id: "3", name: "Bob Johnson", student_id: "ST003" },
+        ]
+        setStudents(mockStudents)
+      } catch (error) {
+        console.error("Error loading students:", error)
+      }
+    }
+
+    loadStudents()
   }, [])
 
   const handleSubmit = async () => {
@@ -53,7 +66,7 @@ export default function ManualCheckinPage() {
       const today = new Date().toDateString()
       const attendance = JSON.parse(localStorage.getItem("attendance") || "[]")
       const existingRecord = attendance.find(
-        (record: any) => record.studentId === student.studentId && new Date(record.timestamp).toDateString() === today,
+        (record: any) => record.studentId === student.student_id && new Date(record.timestamp).toDateString() === today,
       )
 
       if (existingRecord) {
@@ -66,14 +79,12 @@ export default function ManualCheckinPage() {
         return
       }
 
-      addManualAttendance({
-        studentId: student.studentId,
+      await addManualAttendance({
+        studentId: student.student_id,
         studentName: student.name,
         timestamp: new Date().toISOString(),
-        location: {
-          latitude: -6.2088, // Default school location
-          longitude: 106.8456,
-        },
+        latitude: -6.2088, // Default school location
+        longitude: 106.8456,
         status,
         method: "manual",
         notes: notes.trim() || undefined,
@@ -138,7 +149,7 @@ export default function ManualCheckinPage() {
                       <SelectContent>
                         {students.map((student) => (
                           <SelectItem key={student.id} value={student.id}>
-                            {student.name} ({student.studentId})
+                            {student.name} ({student.student_id})
                           </SelectItem>
                         ))}
                       </SelectContent>
@@ -221,5 +232,13 @@ export default function ManualCheckinPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function ManualCheckinPage() {
+  return (
+    <AuthProvider>
+      <ManualCheckinContent />
+    </AuthProvider>
   )
 }

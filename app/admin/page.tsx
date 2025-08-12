@@ -3,15 +3,16 @@
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
-import { getCurrentUser, logout } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Shield, Users, Calendar, BarChart3, LogOut, MapPin, UserPlus, Clock, TrendingUp } from "lucide-react"
 import { getAllAttendance, getDailyAttendanceSummary, getWeeklyAttendanceSummary } from "@/lib/attendance"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function AdminDashboard() {
-  const user = getCurrentUser()
+function AdminDashboardContent() {
+  const { user, signOut } = useAuthContext()
   const router = useRouter()
   const [dashboardStats, setDashboardStats] = useState({
     totalStudents: 0,
@@ -24,37 +25,45 @@ export default function AdminDashboard() {
   const [recentActivity, setRecentActivity] = useState<any[]>([])
 
   useEffect(() => {
-    // Calculate dashboard statistics
-    const users = JSON.parse(localStorage.getItem("users") || "[]")
-    const students = users.filter((u: any) => u.role === "student")
-    const enrolledStudents = students.filter((s: any) => s.faceDescriptor && s.enrolledAt)
+    const loadDashboardData = async () => {
+      try {
+        // Calculate dashboard statistics
+        const allAttendance = await getAllAttendance()
+        const todaySummary = await getDailyAttendanceSummary(new Date().toDateString())
+        const weeklySummary = await getWeeklyAttendanceSummary()
+        const weeklyAverage =
+          weeklySummary.length > 0
+            ? Math.round(weeklySummary.reduce((sum, day) => sum + day.attendanceRate, 0) / weeklySummary.length)
+            : 0
 
-    const allAttendance = getAllAttendance()
-    const todaySummary = getDailyAttendanceSummary(new Date().toDateString())
-    const weeklySummary = getWeeklyAttendanceSummary()
-    const weeklyAverage =
-      weeklySummary.length > 0
-        ? Math.round(weeklySummary.reduce((sum, day) => sum + day.attendanceRate, 0) / weeklySummary.length)
-        : 0
+        const faceRecognitionCount = allAttendance.filter((r) => r.method === "face").length
+        const faceRecognitionUsage =
+          allAttendance.length > 0 ? Math.round((faceRecognitionCount / allAttendance.length) * 100) : 0
 
-    const faceRecognitionCount = allAttendance.filter((r) => r.method === "face").length
-    const faceRecognitionUsage =
-      allAttendance.length > 0 ? Math.round((faceRecognitionCount / allAttendance.length) * 100) : 0
+        // For now, we'll use mock data since we haven't implemented getAllUsers yet
+        const mockTotalStudents = 25
+        const mockEnrolledStudents = 18
 
-    setDashboardStats({
-      totalStudents: students.length,
-      enrolledStudents: enrolledStudents.length,
-      todayAttendance: todaySummary.attendanceRate,
-      weeklyAverage,
-      totalRecords: allAttendance.length,
-      faceRecognitionUsage,
-    })
+        setDashboardStats({
+          totalStudents: mockTotalStudents,
+          enrolledStudents: mockEnrolledStudents,
+          todayAttendance: todaySummary.attendanceRate,
+          weeklyAverage,
+          totalRecords: allAttendance.length,
+          faceRecognitionUsage,
+        })
 
-    // Get recent activity (last 10 records)
-    const recent = allAttendance
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, 10)
-    setRecentActivity(recent)
+        // Get recent activity (last 10 records)
+        const recent = allAttendance
+          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
+          .slice(0, 10)
+        setRecentActivity(recent)
+      } catch (error) {
+        console.error("Error loading dashboard data:", error)
+      }
+    }
+
+    loadDashboardData()
   }, [])
 
   const quickActions = [
@@ -103,7 +112,7 @@ export default function AdminDashboard() {
                   <p className="text-sm text-gray-500">Welcome, {user?.name}</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={logout} className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" onClick={signOut} className="flex items-center gap-2 bg-transparent">
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>
@@ -323,5 +332,13 @@ export default function AdminDashboard() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function AdminDashboard() {
+  return (
+    <AuthProvider>
+      <AdminDashboardContent />
+    </AuthProvider>
   )
 }

@@ -4,19 +4,20 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
 import { FaceRecognition } from "@/components/face-recognition"
-import { LocationStatus } from "@/components/location-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, CheckCircle, AlertTriangle } from "lucide-react"
-import { getCurrentUser } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
 import { useToast } from "@/hooks/use-toast"
 import type { LocationValidationResult } from "@/lib/location"
+import { AuthProvider } from "@/components/AuthProvider"
+import { LocationStatus } from "@/components/location-status"
 
-export default function CheckInPage() {
+function CheckInContent() {
   const [isCheckedIn, setIsCheckedIn] = useState(false)
   const [locationResult, setLocationResult] = useState<LocationValidationResult | null>(null)
   const router = useRouter()
-  const user = getCurrentUser()
+  const { user } = useAuthContext()
   const { toast } = useToast()
 
   const handleLocationChange = (result: LocationValidationResult) => {
@@ -36,7 +37,7 @@ export default function CheckInPage() {
     // Create attendance record
     const attendanceRecord = {
       id: Date.now().toString(),
-      studentId: user?.studentId || user?.id || "",
+      studentId: user?.student_id || user?.id || "",
       studentName: user?.name || "",
       timestamp: new Date().toISOString(),
       location: {
@@ -69,7 +70,7 @@ export default function CheckInPage() {
   }
 
   // Check if user has enrolled face
-  const hasEnrolledFace = user?.faceDescriptor && user?.enrolledAt
+  const hasEnrolledFace = user?.face_descriptor && user?.enrolled_at
 
   if (isCheckedIn) {
     return (
@@ -212,5 +213,13 @@ export default function CheckInPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function CheckInPage() {
+  return (
+    <AuthProvider>
+      <CheckInContent />
+    </AuthProvider>
   )
 }

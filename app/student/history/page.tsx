@@ -7,22 +7,31 @@ import { AttendanceTable } from "@/components/attendance-table"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, Calendar, Award } from "lucide-react"
-import { getCurrentUser } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
 import { getStudentAttendance, calculateStudentStats, type AttendanceStats } from "@/lib/attendance"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function StudentHistoryPage() {
+function StudentHistoryContent() {
   const [attendance, setAttendance] = useState<any[]>([])
   const [stats, setStats] = useState<AttendanceStats | null>(null)
   const router = useRouter()
-  const user = getCurrentUser()
+  const { user } = useAuthContext()
 
   useEffect(() => {
     if (user) {
-      const studentAttendance = getStudentAttendance(user.studentId || user.id)
-      setAttendance(studentAttendance)
+      const loadAttendanceData = async () => {
+        try {
+          const studentAttendance = await getStudentAttendance(user.student_id || user.id)
+          setAttendance(studentAttendance)
 
-      const studentStats = calculateStudentStats(user.studentId || user.id, 30)
-      setStats(studentStats)
+          const studentStats = await calculateStudentStats(user.student_id || user.id, 30)
+          setStats(studentStats)
+        } catch (error) {
+          console.error("Error loading attendance data:", error)
+        }
+      }
+
+      loadAttendanceData()
     }
   }, [user])
 
@@ -153,5 +162,13 @@ export default function StudentHistoryPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function StudentHistoryPage() {
+  return (
+    <AuthProvider>
+      <StudentHistoryContent />
+    </AuthProvider>
   )
 }

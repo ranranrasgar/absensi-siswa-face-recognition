@@ -1,7 +1,7 @@
 "use client"
 
 import { AuthGuard } from "@/components/auth-guard"
-import { getCurrentUser, logout } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
 import { LocationStatus } from "@/components/location-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -10,39 +10,40 @@ import { Camera, Clock, LogOut, User, CheckCircle, XCircle, History, BarChart3 }
 import { useRouter } from "next/navigation"
 import { useEffect, useState, useMemo } from "react"
 import type { LocationValidationResult } from "@/lib/location"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function StudentDashboard() {
-  const user = useMemo(() => getCurrentUser(), [])
+function StudentDashboardContent() {
+  const { user, signOut } = useAuthContext()
   const router = useRouter()
   const [todayAttendance, setTodayAttendance] = useState<any>(null)
   const [recentAttendance, setRecentAttendance] = useState<any[]>([])
   const [locationResult, setLocationResult] = useState<LocationValidationResult | null>(null)
 
   useEffect(() => {
-    if (!user?.id && !user?.studentId) return
+    if (!user?.id && !user?.student_id) return
 
     // Check today's attendance
     const attendance = JSON.parse(localStorage.getItem("attendance") || "[]")
     const today = new Date().toDateString()
     const todayRecord = attendance.find(
       (record: any) =>
-        record.studentId === (user?.studentId || user?.id) && new Date(record.timestamp).toDateString() === today,
+        record.studentId === (user?.student_id || user?.id) && new Date(record.timestamp).toDateString() === today,
     )
     setTodayAttendance(todayRecord)
 
     // Get recent attendance (last 7 days)
     const recent = attendance
-      .filter((record: any) => record.studentId === (user?.studentId || user?.id))
+      .filter((record: any) => record.studentId === (user?.student_id || user?.id))
       .sort((a: any, b: any) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
       .slice(0, 7)
     setRecentAttendance(recent)
-  }, [user?.id, user?.studentId])
+  }, [user?.id, user?.student_id])
 
   const handleLocationChange = (result: LocationValidationResult) => {
     setLocationResult(result)
   }
 
-  const hasEnrolledFace = user?.faceDescriptor && user?.enrolledAt
+  const hasEnrolledFace = user?.face_descriptor && user?.enrolled_at
 
   // Added navigation buttons for attendance history
   const quickActions = [
@@ -70,7 +71,7 @@ export default function StudentDashboard() {
                   <p className="text-sm text-gray-500">Welcome, {user?.name}</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={logout} className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" onClick={signOut} className="flex items-center gap-2 bg-transparent">
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>
@@ -224,5 +225,13 @@ export default function StudentDashboard() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function StudentDashboard() {
+  return (
+    <AuthProvider>
+      <StudentDashboardContent />
+    </AuthProvider>
   )
 }

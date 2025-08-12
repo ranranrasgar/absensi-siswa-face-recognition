@@ -9,30 +9,61 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, TrendingUp } from "lucide-react"
 import { getAllAttendance, getWeeklyAttendanceSummary, type DailyAttendanceSummary } from "@/lib/attendance"
+import { getAllUsers } from "@/lib/auth"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function AttendanceReportsPage() {
+function AttendanceReportsContent() {
   const [weeklyData, setWeeklyData] = useState<DailyAttendanceSummary[]>([])
   const [allAttendance, setAllAttendance] = useState<any[]>([])
+  const [totalStudents, setTotalStudents] = useState(0)
   const [selectedPeriod, setSelectedPeriod] = useState("week")
+  const [isLoading, setIsLoading] = useState(true)
   const router = useRouter()
 
   useEffect(() => {
-    const weekly = getWeeklyAttendanceSummary()
-    setWeeklyData(weekly)
+    const loadData = async () => {
+      try {
+        setIsLoading(true)
+        
+        // Load data from Supabase
+        const weekly = await getWeeklyAttendanceSummary()
+        setWeeklyData(weekly)
 
-    const all = getAllAttendance()
-    setAllAttendance(all)
+        const all = await getAllAttendance()
+        setAllAttendance(all)
+
+        // Get total students from Supabase
+        const users = await getAllUsers()
+        const studentCount = users.filter((user: any) => user.role === "student").length
+        setTotalStudents(studentCount)
+      } catch (error) {
+        console.error("Error loading data:", error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadData()
   }, [])
-
-  const totalStudents = JSON.parse(localStorage.getItem("users") || "[]").filter(
-    (user: any) => user.role === "student",
-  ).length
 
   const todayAttendance = weeklyData[weeklyData.length - 1]
   const weeklyAverage =
     weeklyData.length > 0
       ? Math.round(weeklyData.reduce((sum, day) => sum + day.attendanceRate, 0) / weeklyData.length)
       : 0
+
+  if (isLoading) {
+    return (
+      <AuthGuard requiredRole="admin">
+        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading reports...</p>
+          </div>
+        </div>
+      </AuthGuard>
+    )
+  }
 
   return (
     <AuthGuard requiredRole="admin">
@@ -149,10 +180,10 @@ export default function AttendanceReportsPage() {
                       </div>
                       <div className="text-2xl font-bold text-green-600">
                         {weeklyData.length > 0
-                          ? `${
+                          ? `${Math.round(
                               weeklyData.reduce((best, day) => (day.attendanceRate > best.attendanceRate ? day : best))
                                 .attendanceRate
-                            }%`
+                            )}%`
                           : "0%"}
                       </div>
                     </div>
@@ -200,5 +231,13 @@ export default function AttendanceReportsPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function AttendanceReportsPage() {
+  return (
+    <AuthProvider>
+      <AttendanceReportsContent />
+    </AuthProvider>
   )
 }

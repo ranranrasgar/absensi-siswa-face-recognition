@@ -6,12 +6,13 @@ import { AuthGuard } from "@/components/auth-guard"
 import { FaceRecognition } from "@/components/face-recognition"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, CheckCircle } from "lucide-react"
-import { getCurrentUser } from "@/lib/auth"
+import { useAuthContext } from "@/components/AuthProvider"
+import { AuthProvider } from "@/components/AuthProvider"
 
-export default function FaceEnrollmentPage() {
+function FaceEnrollmentContent() {
   const [isEnrolled, setIsEnrolled] = useState(false)
   const router = useRouter()
-  const user = getCurrentUser()
+  const { user } = useAuthContext()
 
   const handleEnrollmentSuccess = () => {
     setIsEnrolled(true)
@@ -72,5 +73,13 @@ export default function FaceEnrollmentPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function FaceEnrollmentPage() {
+  return (
+    <AuthProvider>
+      <FaceEnrollmentContent />
+    </AuthProvider>
   )
 }

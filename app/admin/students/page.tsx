@@ -19,18 +19,19 @@ import { Label } from "@/components/ui/label"
 import { ArrowLeft, Users, Search, UserPlus, CheckCircle, XCircle, Trash2, Edit } from "lucide-react"
 import { useToast } from "@/hooks/use-toast"
 import { getStudentAttendance, calculateStudentStats } from "@/lib/attendance"
+import { AuthProvider } from "@/components/AuthProvider"
 
 interface Student {
   id: string
   email: string
   name: string
   role: "student"
-  studentId: string
-  faceDescriptor?: number[]
-  enrolledAt?: string
+  student_id: string
+  face_descriptor?: number[]
+  enrolled_at?: string
 }
 
-export default function StudentsManagementPage() {
+function StudentsManagementContent() {
   const [students, setStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
@@ -58,7 +59,7 @@ export default function StudentsManagementPage() {
   const filteredStudents = students.filter(
     (student) =>
       student.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      student.studentId.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      student.student_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
       student.email.toLowerCase().includes(searchTerm.toLowerCase()),
   )
 
@@ -73,7 +74,7 @@ export default function StudentsManagementPage() {
     }
 
     const users = JSON.parse(localStorage.getItem("users") || "[]")
-    const existingUser = users.find((u: any) => u.email === newStudent.email || u.studentId === newStudent.studentId)
+    const existingUser = users.find((u: any) => u.email === newStudent.email || u.student_id === newStudent.studentId)
 
     if (existingUser) {
       toast({
@@ -89,7 +90,7 @@ export default function StudentsManagementPage() {
       email: newStudent.email,
       name: newStudent.name,
       role: "student",
-      studentId: newStudent.studentId,
+      student_id: newStudent.studentId,
     }
 
     users.push(student)
@@ -110,7 +111,7 @@ export default function StudentsManagementPage() {
     setNewStudent({
       name: student.name,
       email: student.email,
-      studentId: student.studentId,
+      studentId: student.student_id,
       password: "", // Don't pre-fill password for security
     })
     setIsEditDialogOpen(true)
@@ -128,7 +129,7 @@ export default function StudentsManagementPage() {
 
     const users = JSON.parse(localStorage.getItem("users") || "[]")
     const existingUser = users.find(
-      (u: any) => (u.email === newStudent.email || u.studentId === newStudent.studentId) && u.id !== editingStudent.id,
+      (u: any) => (u.email === newStudent.email || u.student_id === newStudent.studentId) && u.id !== editingStudent.id,
     )
 
     if (existingUser) {
@@ -146,7 +147,7 @@ export default function StudentsManagementPage() {
         ...users[userIndex],
         name: newStudent.name,
         email: newStudent.email,
-        studentId: newStudent.studentId,
+        student_id: newStudent.studentId,
         ...(newStudent.password && { id: newStudent.password }), // Update password if provided
       }
       localStorage.setItem("users", JSON.stringify(users))
@@ -154,7 +155,7 @@ export default function StudentsManagementPage() {
       // Update attendance records with new student name
       const attendance = JSON.parse(localStorage.getItem("attendance") || "[]")
       const updatedAttendance = attendance.map((record: any) =>
-        record.studentId === editingStudent.studentId ? { ...record, studentName: newStudent.name } : record,
+        record.studentId === editingStudent.student_id ? { ...record, studentName: newStudent.name } : record,
       )
       localStorage.setItem("attendance", JSON.stringify(updatedAttendance))
 
@@ -194,8 +195,8 @@ export default function StudentsManagementPage() {
       const users = JSON.parse(localStorage.getItem("users") || "[]")
       const userIndex = users.findIndex((u: any) => u.id === studentId)
       if (userIndex !== -1) {
-        delete users[userIndex].faceDescriptor
-        delete users[userIndex].enrolledAt
+        delete users[userIndex].face_descriptor
+        delete users[userIndex].enrolled_at
         localStorage.setItem("users", JSON.stringify(users))
         loadStudents()
 
@@ -299,8 +300,8 @@ export default function StudentsManagementPage() {
               </div>
               <div className="flex gap-4 text-sm text-gray-600">
                 <span>Total: {students.length}</span>
-                <span>Enrolled: {students.filter((s) => s.faceDescriptor).length}</span>
-                <span>Pending: {students.filter((s) => !s.faceDescriptor).length}</span>
+                <span>Enrolled: {students.filter((s) => s.face_descriptor).length}</span>
+                <span>Pending: {students.filter((s) => !s.face_descriptor).length}</span>
               </div>
             </div>
           </div>
@@ -308,9 +309,9 @@ export default function StudentsManagementPage() {
           {/* Students Grid */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {filteredStudents.map((student) => {
-              const attendance = getStudentAttendance(student.studentId || student.id)
-              const stats = calculateStudentStats(student.studentId || student.id, 30)
-              const isEnrolled = student.faceDescriptor && student.enrolledAt
+              const attendance = getStudentAttendance(student.student_id || student.id)
+              const stats = calculateStudentStats(student.student_id || student.id, 30)
+              const isEnrolled = student.face_descriptor && student.enrolled_at
 
               return (
                 <Card key={student.id}>
@@ -318,7 +319,7 @@ export default function StudentsManagementPage() {
                     <div className="flex items-center justify-between">
                       <div>
                         <CardTitle className="text-lg">{student.name}</CardTitle>
-                        <CardDescription>{student.studentId}</CardDescription>
+                        <CardDescription>{student.student_id}</CardDescription>
                       </div>
                       <div className="flex items-center gap-2">
                         {isEnrolled ? (
@@ -338,7 +339,7 @@ export default function StudentsManagementPage() {
                   <CardContent className="space-y-4">
                     <div className="text-sm text-gray-600">
                       <p>Email: {student.email}</p>
-                      {isEnrolled && <p>Enrolled: {new Date(student.enrolledAt!).toLocaleDateString()}</p>}
+                      {isEnrolled && <p>Enrolled: {new Date(student.enrolled_at!).toLocaleDateString()}</p>}
                     </div>
 
                     <div className="grid grid-cols-2 gap-4 text-sm">
@@ -396,7 +397,7 @@ export default function StudentsManagementPage() {
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">
                   {searchTerm ? "No students found" : "No students yet"}
                 </h3>
-                <p className="text-gray-500 mb-4">
+                <p className="text-gray-600 mb-4">
                   {searchTerm
                     ? "Try adjusting your search terms"
                     : "Add your first student to get started with the attendance system"}
@@ -479,5 +480,13 @@ export default function StudentsManagementPage() {
         </main>
       </div>
     </AuthGuard>
+  )
+}
+
+export default function StudentsManagementPage() {
+  return (
+    <AuthProvider>
+      <StudentsManagementContent />
+    </AuthProvider>
   )
 }
