@@ -1,17 +1,9 @@
-export interface AttendanceRecord {
-  id: string
-  studentId: string
-  studentName: string
-  timestamp: string
-  location: {
-    latitude: number
-    longitude: number
-  }
-  status: "present" | "late" | "absent"
-  method: "face" | "manual"
-  distance?: number
-  notes?: string
-}
+import { supabase } from './supabase'
+import type { Database } from './supabase'
+
+export type AttendanceRecord = Database['public']['Tables']['attendance']['Row']
+export type AttendanceInsert = Database['public']['Tables']['attendance']['Insert']
+export type AttendanceUpdate = Database['public']['Tables']['attendance']['Update']
 
 export interface AttendanceStats {
   totalDays: number
@@ -31,119 +23,236 @@ export interface DailyAttendanceSummary {
 }
 
 // Get all attendance records
-export const getAllAttendance = (): AttendanceRecord[] => {
-  return JSON.parse(localStorage.getItem("attendance") || "[]")
+export const getAllAttendance = async (): Promise<AttendanceRecord[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .order('timestamp', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error getting all attendance:', error)
+    return []
+  }
 }
 
 // Get attendance for a specific student
-export const getStudentAttendance = (studentId: string): AttendanceRecord[] => {
-  const allAttendance = getAllAttendance()
-  return allAttendance.filter((record) => record.studentId === studentId)
+export const getStudentAttendance = async (studentId: string): Promise<AttendanceRecord[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('student_id', studentId)
+      .order('timestamp', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error getting student attendance:', error)
+    return []
+  }
 }
 
 // Get attendance for a specific date
-export const getAttendanceByDate = (date: string): AttendanceRecord[] => {
-  const allAttendance = getAllAttendance()
-  return allAttendance.filter((record) => new Date(record.timestamp).toDateString() === new Date(date).toDateString())
+export const getAttendanceByDate = async (date: string): Promise<AttendanceRecord[]> => {
+  try {
+    const startOfDay = new Date(date)
+    startOfDay.setHours(0, 0, 0, 0)
+    
+    const endOfDay = new Date(date)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .gte('timestamp', startOfDay.toISOString())
+      .lte('timestamp', endOfDay.toISOString())
+      .order('timestamp', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error getting attendance by date:', error)
+    return []
+  }
 }
 
 // Get attendance for a date range
-export const getAttendanceByDateRange = (startDate: string, endDate: string): AttendanceRecord[] => {
-  const allAttendance = getAllAttendance()
-  const start = new Date(startDate)
-  const end = new Date(endDate)
+export const getAttendanceByDateRange = async (startDate: string, endDate: string): Promise<AttendanceRecord[]> => {
+  try {
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+    end.setHours(23, 59, 59, 999)
 
-  return allAttendance.filter((record) => {
-    const recordDate = new Date(record.timestamp)
-    return recordDate >= start && recordDate <= end
-  })
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .gte('timestamp', start.toISOString())
+      .lte('timestamp', end.toISOString())
+      .order('timestamp', { ascending: false })
+
+    if (error) throw error
+    return data || []
+  } catch (error) {
+    console.error('Error getting attendance by date range:', error)
+    return []
+  }
 }
 
 // Calculate attendance statistics for a student
-export const calculateStudentStats = (studentId: string, days = 30): AttendanceStats => {
-  const studentAttendance = getStudentAttendance(studentId)
-  const endDate = new Date()
-  const startDate = new Date()
-  startDate.setDate(endDate.getDate() - days)
+export const calculateStudentStats = async (studentId: string, days = 30): Promise<AttendanceStats> => {
+  try {
+    const endDate = new Date()
+    const startDate = new Date()
+    startDate.setDate(endDate.getDate() - days)
 
-  const relevantRecords = studentAttendance.filter((record) => {
-    const recordDate = new Date(record.timestamp)
-    return recordDate >= startDate && recordDate <= endDate
-  })
+    const { data, error } = await supabase
+      .from('attendance')
+      .select('*')
+      .eq('student_id', studentId)
+      .gte('timestamp', startDate.toISOString())
+      .lte('timestamp', endDate.toISOString())
 
-  const presentDays = relevantRecords.filter((r) => r.status === "present").length
-  const lateDays = relevantRecords.filter((r) => r.status === "late").length
-  const absentDays = days - presentDays - lateDays
+    if (error) throw error
 
-  return {
-    totalDays: days,
-    presentDays,
-    lateDays,
-    absentDays,
-    attendanceRate: days > 0 ? Math.round((presentDays / days) * 100) : 0,
+    const relevantRecords = data || []
+    const presentDays = relevantRecords.filter((r) => r.status === 'present').length
+    const lateDays = relevantRecords.filter((r) => r.status === 'late').length
+    const absentDays = days - presentDays - lateDays
+
+    return {
+      totalDays: days,
+      presentDays,
+      lateDays,
+      absentDays,
+      attendanceRate: days > 0 ? Math.round((presentDays / days) * 100) : 0,
+    }
+  } catch (error) {
+    console.error('Error calculating student stats:', error)
+    return {
+      totalDays: days,
+      presentDays: 0,
+      lateDays: 0,
+      absentDays: days,
+      attendanceRate: 0,
+    }
   }
 }
 
 // Get daily attendance summary
-export const getDailyAttendanceSummary = (date: string): DailyAttendanceSummary => {
-  const dayAttendance = getAttendanceByDate(date)
-  const allUsers = JSON.parse(localStorage.getItem("users") || "[]")
-  const students = allUsers.filter((user: any) => user.role === "student")
+export const getDailyAttendanceSummary = async (date: string): Promise<DailyAttendanceSummary> => {
+  try {
+    const dayAttendance = await getAttendanceByDate(date)
+    
+    // Get total students count
+    const { data: students, error: studentsError } = await supabase
+      .from('users')
+      .select('id')
+      .eq('role', 'student')
 
-  const presentCount = dayAttendance.filter((r) => r.status === "present").length
-  const lateCount = dayAttendance.filter((r) => r.status === "late").length
-  const absentCount = students.length - presentCount - lateCount
+    if (studentsError) throw studentsError
 
-  return {
-    date,
-    totalStudents: students.length,
-    presentCount,
-    lateCount,
-    absentCount,
-    attendanceRate: students.length > 0 ? Math.round((presentCount / students.length) * 100) : 0,
+    const totalStudents = students?.length || 0
+    const presentCount = dayAttendance.filter((r) => r.status === 'present').length
+    const lateCount = dayAttendance.filter((r) => r.status === 'late').length
+    const absentCount = totalStudents - presentCount - lateCount
+
+    return {
+      date,
+      totalStudents,
+      presentCount,
+      lateCount,
+      absentCount,
+      attendanceRate: totalStudents > 0 ? Math.round((presentCount / totalStudents) * 100) : 0,
+    }
+  } catch (error) {
+    console.error('Error getting daily attendance summary:', error)
+    return {
+      date,
+      totalStudents: 0,
+      presentCount: 0,
+      lateCount: 0,
+      absentCount: 0,
+      attendanceRate: 0,
+    }
   }
 }
 
 // Get weekly attendance summary
-export const getWeeklyAttendanceSummary = (): DailyAttendanceSummary[] => {
-  const summaries: DailyAttendanceSummary[] = []
-  const today = new Date()
+export const getWeeklyAttendanceSummary = async (): Promise<DailyAttendanceSummary[]> => {
+  try {
+    const summaries: DailyAttendanceSummary[] = []
+    const today = new Date()
 
-  for (let i = 6; i >= 0; i--) {
-    const date = new Date(today)
-    date.setDate(today.getDate() - i)
-    summaries.push(getDailyAttendanceSummary(date.toDateString()))
+    for (let i = 6; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      const summary = await getDailyAttendanceSummary(date.toISOString().split('T')[0])
+      summaries.push(summary)
+    }
+
+    return summaries
+  } catch (error) {
+    console.error('Error getting weekly attendance summary:', error)
+    return []
   }
+}
 
-  return summaries
+// Add attendance record
+export const addAttendanceRecord = async (record: Omit<AttendanceInsert, 'id' | 'created_at'>): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('attendance')
+      .insert([{
+        ...record,
+        created_at: new Date().toISOString(),
+      }])
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error adding attendance record:', error)
+    return false
+  }
 }
 
 // Add manual attendance record (admin only)
-export const addManualAttendance = (record: Omit<AttendanceRecord, "id">): void => {
-  const attendance = getAllAttendance()
-  const newRecord: AttendanceRecord = {
-    ...record,
-    id: Date.now().toString(),
-  }
-  attendance.push(newRecord)
-  localStorage.setItem("attendance", JSON.stringify(attendance))
+export const addManualAttendance = async (record: Omit<AttendanceInsert, 'id' | 'created_at'>): Promise<boolean> => {
+  return addAttendanceRecord(record)
 }
 
 // Update attendance record
-export const updateAttendanceRecord = (id: string, updates: Partial<AttendanceRecord>): void => {
-  const attendance = getAllAttendance()
-  const index = attendance.findIndex((record) => record.id === id)
-  if (index !== -1) {
-    attendance[index] = { ...attendance[index], ...updates }
-    localStorage.setItem("attendance", JSON.stringify(attendance))
+export const updateAttendanceRecord = async (id: string, updates: AttendanceUpdate): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('attendance')
+      .update(updates)
+      .eq('id', id)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error updating attendance record:', error)
+    return false
   }
 }
 
 // Delete attendance record
-export const deleteAttendanceRecord = (id: string): void => {
-  const attendance = getAllAttendance()
-  const filtered = attendance.filter((record) => record.id !== id)
-  localStorage.setItem("attendance", JSON.stringify(filtered))
+export const deleteAttendanceRecord = async (id: string): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('attendance')
+      .delete()
+      .eq('id', id)
+
+    if (error) throw error
+    return true
+  } catch (error) {
+    console.error('Error deleting attendance record:', error)
+    return false
+  }
 }
 
 // Export attendance data as CSV
@@ -155,8 +264,8 @@ export const exportAttendanceCSV = (records: AttendanceRecord[]): string => {
       [
         new Date(record.timestamp).toLocaleDateString(),
         new Date(record.timestamp).toLocaleTimeString(),
-        record.studentId,
-        `"${record.studentName}"`,
+        record.student_id,
+        `"${record.student_name}"`,
         record.status,
         record.method,
         record.distance || "",
