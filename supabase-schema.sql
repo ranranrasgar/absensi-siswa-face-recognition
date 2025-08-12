@@ -1,6 +1,3 @@
--- Enable Row Level Security
-ALTER DATABASE postgres SET "app.jwt_secret" TO 'your-jwt-secret-here';
-
 -- Create users table
 CREATE TABLE IF NOT EXISTS public.users (
   id UUID REFERENCES auth.users(id) ON DELETE CASCADE PRIMARY KEY,
@@ -73,6 +70,20 @@ CREATE POLICY "Admins can update all users" ON public.users
     )
   );
 
+-- Allow users to insert their own profile (for signup)
+CREATE POLICY "Users can insert their own profile" ON public.users
+  FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Allow first user to become admin (if no users exist yet)
+CREATE POLICY "First user can become admin" ON public.users
+  FOR INSERT WITH CHECK (
+    auth.uid() = id AND (
+      -- Allow if this is the first user (no users exist yet)
+      (SELECT COUNT(*) FROM public.users) = 0
+    )
+  );
+
+-- Allow existing admins to insert users
 CREATE POLICY "Admins can insert users" ON public.users
   FOR INSERT WITH CHECK (
     EXISTS (
@@ -147,10 +158,6 @@ CREATE TRIGGER update_users_updated_at
   BEFORE UPDATE ON public.users
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
-
--- Insert default admin user (you'll need to create this user in auth.users first)
--- INSERT INTO public.users (id, email, name, role) VALUES 
--- ('your-admin-uuid-here', 'admin@school.com', 'School Administrator', 'admin');
 
 -- Insert default school location
 INSERT INTO public.school_locations (name, latitude, longitude, radius) VALUES 
