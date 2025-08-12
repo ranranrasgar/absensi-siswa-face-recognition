@@ -34,6 +34,8 @@ export default function StudentsManagementPage() {
   const [students, setStudents] = useState<Student[]>([])
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false)
+  const [editingStudent, setEditingStudent] = useState<Student | null>(null)
   const [newStudent, setNewStudent] = useState({
     name: "",
     email: "",
@@ -101,6 +103,71 @@ export default function StudentsManagementPage() {
 
     setNewStudent({ name: "", email: "", studentId: "", password: "" })
     setIsAddDialogOpen(false)
+  }
+
+  const handleEditStudent = (student: Student) => {
+    setEditingStudent(student)
+    setNewStudent({
+      name: student.name,
+      email: student.email,
+      studentId: student.studentId,
+      password: "", // Don't pre-fill password for security
+    })
+    setIsEditDialogOpen(true)
+  }
+
+  const handleUpdateStudent = () => {
+    if (!editingStudent || !newStudent.name || !newStudent.email || !newStudent.studentId) {
+      toast({
+        title: "Validation Error",
+        description: "Please fill in all required fields",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const users = JSON.parse(localStorage.getItem("users") || "[]")
+    const existingUser = users.find(
+      (u: any) => (u.email === newStudent.email || u.studentId === newStudent.studentId) && u.id !== editingStudent.id,
+    )
+
+    if (existingUser) {
+      toast({
+        title: "Student Already Exists",
+        description: "A student with this email or ID already exists",
+        variant: "destructive",
+      })
+      return
+    }
+
+    const userIndex = users.findIndex((u: any) => u.id === editingStudent.id)
+    if (userIndex !== -1) {
+      users[userIndex] = {
+        ...users[userIndex],
+        name: newStudent.name,
+        email: newStudent.email,
+        studentId: newStudent.studentId,
+        ...(newStudent.password && { id: newStudent.password }), // Update password if provided
+      }
+      localStorage.setItem("users", JSON.stringify(users))
+
+      // Update attendance records with new student name
+      const attendance = JSON.parse(localStorage.getItem("attendance") || "[]")
+      const updatedAttendance = attendance.map((record: any) =>
+        record.studentId === editingStudent.studentId ? { ...record, studentName: newStudent.name } : record,
+      )
+      localStorage.setItem("attendance", JSON.stringify(updatedAttendance))
+
+      loadStudents()
+      toast({
+        title: "Student Updated",
+        description: `${newStudent.name} has been updated successfully`,
+      })
+
+      setNewStudent({ name: "", email: "", studentId: "", password: "" })
+      setEditingStudent(null)
+      setIsEditDialogOpen(false)
+    }
   }
 
   const handleDeleteStudent = (studentId: string, studentName: string) => {
@@ -286,6 +353,15 @@ export default function StudentsManagementPage() {
                     </div>
 
                     <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleEditStudent(student)}
+                        className="flex-1 bg-transparent"
+                      >
+                        <Edit className="h-3 w-3 mr-1" />
+                        Edit
+                      </Button>
                       {isEnrolled && (
                         <Button
                           variant="outline"
@@ -334,6 +410,72 @@ export default function StudentsManagementPage() {
               </CardContent>
             </Card>
           )}
+
+          {/* Edit Student Dialog */}
+          <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Edit Student</DialogTitle>
+                <DialogDescription>Update student information</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-name">Full Name</Label>
+                  <Input
+                    id="edit-name"
+                    value={newStudent.name}
+                    onChange={(e) => setNewStudent({ ...newStudent, name: e.target.value })}
+                    placeholder="Enter student's full name"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-email">Email</Label>
+                  <Input
+                    id="edit-email"
+                    type="email"
+                    value={newStudent.email}
+                    onChange={(e) => setNewStudent({ ...newStudent, email: e.target.value })}
+                    placeholder="Enter student's email"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-studentId">Student ID</Label>
+                  <Input
+                    id="edit-studentId"
+                    value={newStudent.studentId}
+                    onChange={(e) => setNewStudent({ ...newStudent, studentId: e.target.value })}
+                    placeholder="Enter student ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-password">New Password (Optional)</Label>
+                  <Input
+                    id="edit-password"
+                    type="password"
+                    value={newStudent.password}
+                    onChange={(e) => setNewStudent({ ...newStudent, password: e.target.value })}
+                    placeholder="Leave blank to keep current password"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button onClick={handleUpdateStudent} className="flex-1">
+                    Update Student
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setIsEditDialogOpen(false)
+                      setEditingStudent(null)
+                      setNewStudent({ name: "", email: "", studentId: "", password: "" })
+                    }}
+                    className="flex-1 bg-transparent"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
         </main>
       </div>
     </AuthGuard>
