@@ -48,6 +48,7 @@ export function Dashboard() {
 
   const handleSignOut = async () => {
     await signOut()
+    // Redirect will be handled by useAuth hook
   }
 
   if (loading) {

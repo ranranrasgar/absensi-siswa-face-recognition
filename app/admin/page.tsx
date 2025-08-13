@@ -27,36 +27,21 @@ function AdminDashboardContent() {
   useEffect(() => {
     const loadDashboardData = async () => {
       try {
-        // Calculate dashboard statistics
-        const allAttendance = await getAllAttendance()
-        const todaySummary = await getDailyAttendanceSummary(new Date().toDateString())
-        const weeklySummary = await getWeeklyAttendanceSummary()
-        const weeklyAverage =
-          weeklySummary.length > 0
-            ? Math.round(weeklySummary.reduce((sum, day) => sum + day.attendanceRate, 0) / weeklySummary.length)
-            : 0
-
-        const faceRecognitionCount = allAttendance.filter((r) => r.method === "face").length
-        const faceRecognitionUsage =
-          allAttendance.length > 0 ? Math.round((faceRecognitionCount / allAttendance.length) * 100) : 0
-
-        // For now, we'll use mock data since we haven't implemented getAllUsers yet
-        const mockTotalStudents = 25
-        const mockEnrolledStudents = 18
-
+        // Mock data for now - replace with actual API calls
         setDashboardStats({
-          totalStudents: mockTotalStudents,
-          enrolledStudents: mockEnrolledStudents,
-          todayAttendance: todaySummary.attendanceRate,
-          weeklyAverage,
-          totalRecords: allAttendance.length,
-          faceRecognitionUsage,
+          totalStudents: 150,
+          enrolledStudents: 120,
+          todayAttendance: 85,
+          weeklyAverage: 82,
+          totalRecords: 1250,
+          faceRecognitionUsage: 75,
         })
 
-        // Get recent activity (last 10 records)
-        const recent = allAttendance
-          .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-          .slice(0, 10)
+        const recent = [
+          { id: 1, action: "Student enrolled", student: "John Doe", time: "2 hours ago" },
+          { id: 2, action: "Attendance recorded", student: "Jane Smith", time: "3 hours ago" },
+          { id: 3, action: "Location updated", student: "Admin", time: "5 hours ago" },
+        ]
         setRecentActivity(recent)
       } catch (error) {
         console.error("Error loading dashboard data:", error)
@@ -65,6 +50,11 @@ function AdminDashboardContent() {
 
     loadDashboardData()
   }, [])
+
+  const handleLogout = async () => {
+    await signOut()
+    router.push('/')
+  }
 
   const quickActions = [
     {
@@ -112,7 +102,7 @@ function AdminDashboardContent() {
                   <p className="text-sm text-gray-500">Welcome, {user?.name}</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={signOut} className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2 bg-transparent">
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>

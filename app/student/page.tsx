@@ -43,6 +43,11 @@ function StudentDashboardContent() {
     setLocationResult(result)
   }
 
+  const handleLogout = async () => {
+    await signOut()
+    router.push('/')
+  }
+
   const hasEnrolledFace = user?.face_descriptor && user?.enrolled_at
 
   // Added navigation buttons for attendance history
@@ -71,7 +76,7 @@ function StudentDashboardContent() {
                   <p className="text-sm text-gray-500">Welcome, {user?.name}</p>
                 </div>
               </div>
-              <Button variant="outline" onClick={signOut} className="flex items-center gap-2 bg-transparent">
+              <Button variant="outline" onClick={handleLogout} className="flex items-center gap-2 bg-transparent">
                 <LogOut className="h-4 w-4" />
                 Logout
               </Button>

@@ -195,6 +195,12 @@ export function useAuth() {
       const { error } = await supabase.auth.signOut()
       if (error) throw error
       setUser(null)
+      
+      // Redirect to home page after logout
+      if (typeof window !== 'undefined') {
+        window.location.href = '/'
+      }
+      
       return { error: null }
     } catch (error) {
       return { error }
