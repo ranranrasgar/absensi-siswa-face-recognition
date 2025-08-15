@@ -200,6 +200,26 @@ export const getWeeklyAttendanceSummary = async (): Promise<DailyAttendanceSumma
   }
 }
 
+// Get monthly attendance summary
+export const getMonthlyAttendanceSummary = async (): Promise<DailyAttendanceSummary[]> => {
+  try {
+    const summaries: DailyAttendanceSummary[] = []
+    const today = new Date()
+
+    for (let i = 29; i >= 0; i--) {
+      const date = new Date(today)
+      date.setDate(today.getDate() - i)
+      const summary = await getDailyAttendanceSummary(date.toISOString().split('T')[0])
+      summaries.push(summary)
+    }
+
+    return summaries
+  } catch (error) {
+    console.error('Error getting monthly attendance summary:', error)
+    return []
+  }
+}
+
 // Add attendance record
 export const addAttendanceRecord = async (record: Omit<AttendanceInsert, 'id' | 'created_at'>): Promise<boolean> => {
   try {

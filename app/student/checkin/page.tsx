@@ -4,14 +4,16 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { AuthGuard } from "@/components/auth-guard"
 import { FaceRecognition } from "@/components/face-recognition"
+import { LocationStatus } from "@/components/location-status"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { ArrowLeft, CheckCircle, AlertTriangle } from "lucide-react"
 import { useAuthContext } from "@/components/AuthProvider"
-import { useToast } from "@/hooks/use-toast"
-import type { LocationValidationResult } from "@/lib/location"
 import { AuthProvider } from "@/components/AuthProvider"
-import { LocationStatus } from "@/components/location-status"
+import { useToast } from "@/hooks/use-toast"
+import { addAttendanceRecord } from "@/lib/attendance"
+import { getUserLocation } from "@/lib/location"
+import type { LocationValidationResult } from "@/lib/location"
 
 function CheckInContent() {
   const [isCheckedIn, setIsCheckedIn] = useState(false)
@@ -24,7 +26,7 @@ function CheckInContent() {
     setLocationResult(result)
   }
 
-  const handleCheckInSuccess = () => {
+  const handleCheckInSuccess = async () => {
     if (!locationResult?.isValid) {
       toast({
         title: "Location validation failed",
@@ -34,35 +36,47 @@ function CheckInContent() {
       return
     }
 
-    // Create attendance record
-    const attendanceRecord = {
-      id: Date.now().toString(),
-      studentId: user?.student_id || user?.id || "",
-      studentName: user?.name || "",
-      timestamp: new Date().toISOString(),
-      location: {
-        latitude: -6.2088, // This would be the actual user location in a real app
-        longitude: 106.8456,
-      },
-      status: "present" as const,
-      method: "face" as const,
-      distance: locationResult.distance,
+    try {
+      // Get user's current location
+      const userLocation = await getUserLocation()
+      
+      // Save attendance record to Supabase
+      const success = await addAttendanceRecord({
+        student_id: user?.id || "",
+        student_name: user?.name || "",
+        timestamp: new Date().toISOString(),
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+        status: "present",
+        method: "face",
+        distance: locationResult.distance,
+      })
+
+      if (success) {
+        setIsCheckedIn(true)
+        toast({
+          title: "Check-in successful",
+          description: "Your attendance has been recorded",
+        })
+
+        setTimeout(() => {
+          router.push("/student")
+        }, 3000)
+      } else {
+        toast({
+          title: "Check-in failed",
+          description: "Failed to save attendance record",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error("Check-in error:", error)
+      toast({
+        title: "Check-in failed",
+        description: "An error occurred while recording attendance",
+        variant: "destructive",
+      })
     }
-
-    // Save attendance record
-    const attendance = JSON.parse(localStorage.getItem("attendance") || "[]")
-    attendance.push(attendanceRecord)
-    localStorage.setItem("attendance", JSON.stringify(attendance))
-
-    setIsCheckedIn(true)
-    toast({
-      title: "Check-in successful",
-      description: "Your attendance has been recorded",
-    })
-
-    setTimeout(() => {
-      router.push("/student")
-    }, 3000)
   }
 
   const handleCheckInError = (error: string) => {
